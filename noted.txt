@@ -1,0 +1,7 @@
+
+Visa: 4811 1111 1111 1114
+Expiry Date: bebas (misal 12/30)
+CVV: bebas 3 digit (misal 123)
+
+
+
