@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/field.dart';
 import '../models/booking.dart';
+import '../models/user.dart'; // Import model User
 
 class SqliteService {
   static final SqliteService _instance = SqliteService._internal();
@@ -53,13 +54,23 @@ class SqliteService {
             customerEmail TEXT
           )
         ''');
+        // --- TABEL BARU UNTUK USERS ---
+        await db.execute('''
+          CREATE TABLE users (
+            email TEXT PRIMARY KEY,
+            password TEXT,
+            role TEXT
+          )
+        ''');
       },
     );
     _isInitialized = true;
     await seedFieldsIfEmpty();
+    await seedAdminIfEmpty(); // Tambahkan seeding admin
   }
 
   Future<void> seedFieldsIfEmpty() async {
+    // ... (kode seeding field)
     final existingFields = await _db.query('fields');
     if (existingFields.isEmpty) {
       final field = Field(
@@ -73,6 +84,40 @@ class SqliteService {
     }
   }
 
+  // --- FUNGSI BARU UNTUK AUTHENTIKASI ---
+  Future<void> seedAdminIfEmpty() async {
+    final existingAdmin = await _db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: ['admin@arena.com'],
+    );
+    if (existingAdmin.isEmpty) {
+      final admin = User(
+        email: 'admin@arena.com',
+        password: 'admin',
+        role: 'admin',
+      );
+      await _db.insert('users', admin.toMap());
+    }
+  }
+
+  Future<User?> findUserByEmail(String email) async {
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    if (maps.isNotEmpty) {
+      return User.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<void> registerUser(User user) async {
+    await _db.insert('users', user.toMap());
+  }
+
+  // ... (fungsi lainnya)
   Future<Field> getSingleField() async {
     final fields = await _db.query('fields', limit: 1);
     if (fields.isNotEmpty) {
@@ -89,7 +134,6 @@ class SqliteService {
 
   Future<String> addBooking(Booking b) async {
     final id = await _db.insert('bookings', b.toMap());
-    _refreshBookings();
     return id.toString();
   }
 
