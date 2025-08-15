@@ -34,9 +34,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 final url = req.url;
                 if (url.contains('mockpay.local/success') && !_paidHandled) {
                   _paidHandled = true;
-                  // update status booking jadi 'paid'
                   fs.updateBooking(widget.bookingId, {'status': 'paid'});
-                  // tampilkan dialog dan pop
                   if (mounted) {
                     showDialog(
                       context: context,

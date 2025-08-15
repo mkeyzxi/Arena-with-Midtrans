@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/sqlite_service.dart';
 import '../models/booking.dart';
+import 'login_screen.dart';
+import 'admin_monitor_screen.dart';
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
@@ -10,7 +12,28 @@ class AdminScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final db = SqliteService();
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin - Daftar Booking')),
+      appBar: AppBar(
+        title: const Text('Admin - Daftar Booking'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminMonitorScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: StreamBuilder<List<Booking>>(
         stream: db.streamBookings(),
         builder: (_, snap) {

@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/field.dart';
 import '../models/booking.dart';
+import '../models/user.dart';
 
 class SqliteService {
   static final SqliteService _instance = SqliteService._internal();
@@ -41,8 +42,8 @@ class SqliteService {
             fieldId TEXT,
             fieldName TEXT,
             date TEXT,
-            startHour INTEGER,
-            durationHours INTEGER,
+            startHour REAL,
+            durationHours REAL,
             pricePerHour INTEGER,
             total INTEGER,
             downPayment INTEGER,
@@ -53,10 +54,19 @@ class SqliteService {
             customerEmail TEXT
           )
         ''');
+        await db.execute('''
+          CREATE TABLE users (
+            email TEXT PRIMARY KEY,
+            password TEXT,
+            role TEXT,
+            username TEXT
+          )
+        ''');
       },
     );
     _isInitialized = true;
     await seedFieldsIfEmpty();
+    await seedAdminIfEmpty();
   }
 
   Future<void> seedFieldsIfEmpty() async {
@@ -71,6 +81,39 @@ class SqliteService {
       );
       await _db.insert('fields', field.toMap());
     }
+  }
+
+  Future<void> seedAdminIfEmpty() async {
+    final existingAdmin = await _db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: ['admin@arena.com'],
+    );
+    if (existingAdmin.isEmpty) {
+      final admin = User(
+        email: 'admin@arena.com',
+        password: 'admin',
+        role: 'admin',
+        username: 'Admin Arena',
+      );
+      await _db.insert('users', admin.toMap());
+    }
+  }
+
+  Future<User?> findUserByEmail(String email) async {
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    if (maps.isNotEmpty) {
+      return User.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<void> registerUser(User user) async {
+    await _db.insert('users', user.toMap());
   }
 
   Future<Field> getSingleField() async {
@@ -89,7 +132,6 @@ class SqliteService {
 
   Future<String> addBooking(Booking b) async {
     final id = await _db.insert('bookings', b.toMap());
-    _refreshBookings();
     return id.toString();
   }
 
@@ -105,6 +147,27 @@ class SqliteService {
       orderBy: 'date DESC',
     );
     _bookingController.sink.add(maps.map((e) => Booking.fromMap(e)).toList());
+  }
+
+  Future<List<Booking>> getBookingsForDate(DateTime date) async {
+    final dateString = date.toIso8601String().split('T')[0];
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'bookings',
+      where: 'date LIKE ?',
+      whereArgs: ['%$dateString%'],
+      orderBy: 'startHour ASC',
+    );
+    return maps.map((e) => Booking.fromMap(e)).toList();
+  }
+
+  Future<List<Booking>> getUserBookings(String userEmail) async {
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'bookings',
+      where: 'customerEmail = ?',
+      whereArgs: [userEmail],
+      orderBy: 'date DESC, startHour ASC',
+    );
+    return maps.map((e) => Booking.fromMap(e)).toList();
   }
 
   Future<void> updateBooking(String id, Map<String, dynamic> data) async {

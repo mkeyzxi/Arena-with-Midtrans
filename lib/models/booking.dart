@@ -1,12 +1,14 @@
+// lib/models/booking.dart
+
 import 'package:flutter/material.dart';
 
 class Booking {
-  final String? id; // ID bisa null jika belum disimpan
+  final String? id;
   final String fieldId;
   final String fieldName;
   final DateTime date;
-  final int startHour;
-  final int durationHours;
+  final double startHour;
+  final double durationHours;
   final int pricePerHour;
   final int total;
   final int downPayment;

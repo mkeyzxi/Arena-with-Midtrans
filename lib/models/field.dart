@@ -1,8 +1,10 @@
+// lib/models/field.dart
+
 class Field {
   final String id;
   final String name;
-  final String openHour; // "08:00"
-  final String closeHour; // "22:00"
+  final String openHour;
+  final String closeHour;
   final int pricePerHour;
 
   Field({
