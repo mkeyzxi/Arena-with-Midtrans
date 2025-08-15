@@ -4,20 +4,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class MidtransService {
-  // === AKSES KEY ANDA (HANYA UNTUK DEMO, TIDAK AMAN UNTUK PRODUKSI) ===
   final String _serverKey = 'SB-Mid-server-CFY3sNf0svF0yQL7lOcGybxB';
   final String _clientKey = 'SB-Mid-client-AuJdg2WzPtuHZvVP';
   final String _midtransApiUrl =
       'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
-  // Fungsi untuk membuat transaksi dan mendapatkan Snap Token
   Future<Map<String, dynamic>> createTransaction({
     required String orderId,
     required int amount,
     required String customerName,
     required String customerEmail,
   }) async {
-    // Basic Auth untuk Server Key
     final String basicAuth =
         'Basic ' + base64Encode(utf8.encode('$_serverKey:'));
 

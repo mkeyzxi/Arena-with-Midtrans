@@ -12,6 +12,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final _username = TextEditingController();
   final _email = TextEditingController();
   final _pass = TextEditingController();
   final _confirmPass = TextEditingController();
@@ -19,11 +20,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final SqliteService _dbService = SqliteService();
 
   Future<void> _register() async {
+    final u = _username.text.trim();
     final e = _email.text.trim();
     final p = _pass.text.trim();
     final cp = _confirmPass.text.trim();
 
-    if (e.isEmpty || p.isEmpty || cp.isEmpty) {
+    if (u.isEmpty || e.isEmpty || p.isEmpty || cp.isEmpty) {
       setState(() => _err = 'Semua field harus diisi.');
       return;
     }
@@ -32,14 +34,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Cek apakah email sudah terdaftar
     final existingUser = await _dbService.findUserByEmail(e);
     if (existingUser != null) {
       setState(() => _err = 'Email sudah terdaftar.');
       return;
     }
 
-    final newUser = User(email: e, password: p, role: 'user');
+    final newUser = User(email: e, password: p, role: 'user', username: u);
     await _dbService.registerUser(newUser);
 
     if (mounted) {
@@ -59,6 +60,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            TextField(
+              controller: _username,
+              decoration: const InputDecoration(labelText: 'Username'),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _email,
               decoration: const InputDecoration(labelText: 'Email'),

@@ -1,11 +1,10 @@
-// lib/screens/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:arena_futsal_app/models/user.dart';
 import 'user_booking_screen.dart';
 import 'admin_screen.dart';
 import 'package:arena_futsal_app/services/sqlite_service.dart';
 import 'register_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final e = _email.text.trim();
     final p = _pass.text.trim();
 
-    // Cari user di database
     final User? user = await _dbService.findUserByEmail(e);
 
     if (user != null && user.password == p) {
@@ -33,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const UserBookingScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
         );
       }
     } else {

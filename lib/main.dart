@@ -5,7 +5,7 @@ import 'screens/login_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final dbService = SqliteService();
-  await dbService.init(); // Pastikan inisialisasi selesai sebelum runApp
+  await dbService.init();
   runApp(const ArenaApp());
 }
 
