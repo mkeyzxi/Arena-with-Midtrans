@@ -7,6 +7,7 @@ import '../models/booking.dart';
 import 'login_screen.dart';
 import 'admin_monitor_screen.dart';
 import 'admin_booking_screen.dart';
+import 'admin_member_booking_screen.dart';
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
@@ -24,6 +25,17 @@ class AdminScreen extends StatelessWidget {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.group_add),
+            tooltip: 'Tambah Booking Member',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AdminMemberBookingScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Tambah Booking',

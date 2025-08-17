@@ -6,8 +6,8 @@ class Booking {
   final String? id;
   final String fieldId;
   final String fieldName;
-  final DateTime startTime; // Menggunakan DateTime
-  final int durationHours; // Menggunakan int untuk durasi
+  final DateTime startTime;
+  final int durationHours;
   final int pricePerHour;
   final int total;
   final int downPayment;
@@ -56,7 +56,10 @@ class Booking {
     fieldId: d['fieldId'],
     fieldName: d['fieldName'],
     startTime: DateTime.parse(d['startTime']),
-    durationHours: d['durationHours'],
+    durationHours:
+        d['durationHours'] is int
+            ? d['durationHours']
+            : int.tryParse(d['durationHours'].toString()) ?? 1,
     pricePerHour: d['pricePerHour'],
     total: d['total'],
     downPayment: d['downPayment'],

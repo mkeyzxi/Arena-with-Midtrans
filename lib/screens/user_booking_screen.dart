@@ -43,16 +43,21 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   Future<Field> _loadFieldAndBookings() async {
     await db.init();
     final field = await db.getSingleField();
-    await _updateBookings();
+    await _updateBookings(field);
     return field;
   }
 
-  Future<void> _updateBookings() async {
+  Future<void> _updateBookings(Field field) async {
     _bookingsOnDate = await db.getBookingsForDate(_selectedDate);
-    final field = await db.getSingleField();
     setState(() {
       _isSlotAvailable = _checkSlotAvailability(field);
     });
+  }
+
+  int _calculateMaxDuration(Field field) {
+    final closeHour = int.parse(field.closeHour.split(':')[0]);
+    final selectedHour = _selectedTime.hour;
+    return closeHour - selectedHour;
   }
 
   int _total(Field field) => (field.pricePerHour * _durationHours);
@@ -62,12 +67,13 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     final r = await showDatePicker(
       context: context,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 60)),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
       initialDate: _selectedDate,
     );
     if (r != null) {
       setState(() => _selectedDate = r);
-      await _updateBookings();
+      final field = await db.getSingleField();
+      await _updateBookings(field);
     }
   }
 
@@ -84,8 +90,14 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       },
     );
     if (r != null) {
-      setState(() => _selectedTime = r);
-      _isSlotAvailable = _checkSlotAvailability(field);
+      setState(() {
+        _selectedTime = r;
+        _isSlotAvailable = _checkSlotAvailability(field);
+        final maxDuration = _calculateMaxDuration(field);
+        if (_durationHours > maxDuration) {
+          _durationHours = maxDuration;
+        }
+      });
     }
   }
 
@@ -105,6 +117,9 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     }
 
     for (var b in _bookingsOnDate) {
+      if (b.customerEmail == widget.user.email) {
+        continue;
+      }
       final existingEnd = b.endTime;
       if (selectedStart.isBefore(existingEnd) &&
           selectedEnd.isAfter(b.startTime)) {
@@ -188,6 +203,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 bookingId: bookingId,
                 orderId: orderId,
                 redirectUrl: tx['redirect_url'],
+                user: widget.user,
               ),
         ),
       );
@@ -240,6 +256,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
 
           final total = _total(field);
           final toPay = _payFull ? total : _dp(field);
+          final maxDuration = _calculateMaxDuration(field);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -302,11 +319,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 decoration: const InputDecoration(labelText: 'Durasi (jam)'),
                 value: _durationHours,
                 items:
-                    List.generate(
-                          int.parse(field.closeHour.split(':')[0]) -
-                              int.parse(field.openHour.split(':')[0]),
-                          (i) => i + 1,
-                        )
+                    List.generate(maxDuration, (i) => i + 1)
                         .map(
                           (d) =>
                               DropdownMenuItem(value: d, child: Text('$d jam')),

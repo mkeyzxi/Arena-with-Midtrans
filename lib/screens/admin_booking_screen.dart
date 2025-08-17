@@ -24,7 +24,6 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
 
   User? _selectedUser;
   final TextEditingController _manualUsernameCtl = TextEditingController();
-  final TextEditingController _manualEmailCtl = TextEditingController();
 
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
@@ -63,7 +62,7 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
     final r = await showDatePicker(
       context: context,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 60)),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
       initialDate: _selectedDate,
     );
     if (r != null) {
@@ -134,9 +133,7 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
 
   Future<void> _submit(Field field) async {
     if (!_isSlotAvailable! ||
-        (_selectedUser == null &&
-            (_manualUsernameCtl.text.isEmpty ||
-                _manualEmailCtl.text.isEmpty))) {
+        (_selectedUser == null && _manualUsernameCtl.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Data tidak valid atau slot terisi.')),
       );
@@ -146,7 +143,7 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
     final String customerName =
         _selectedUser?.username ?? _manualUsernameCtl.text.trim();
     final String customerEmail =
-        _selectedUser?.email ?? _manualEmailCtl.text.trim();
+        _selectedUser?.email ?? 'guest@arena.com'; // Email default untuk tamu
 
     final total = _total(field);
     final amount = _payFull ? total : _dp(field);
@@ -195,6 +192,7 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
                 bookingId: bookingId,
                 orderId: orderId,
                 redirectUrl: tx['redirect_url'],
+                user: null,
               ),
         ),
       );
@@ -267,12 +265,11 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
                             setState(() {
                               _selectedUser = v;
                               _manualUsernameCtl.clear();
-                              _manualEmailCtl.clear();
                             });
                           },
                         ),
                         const SizedBox(height: 12),
-                        const Text('Atau masukkan detail pengguna baru:'),
+                        const Text('Atau masukkan nama pengguna baru:'),
                       ],
                     );
                   }
@@ -282,12 +279,6 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
               TextField(
                 controller: _manualUsernameCtl,
                 decoration: const InputDecoration(labelText: 'Nama Pengguna'),
-                enabled: _selectedUser == null,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _manualEmailCtl,
-                decoration: const InputDecoration(labelText: 'Email Pengguna'),
                 enabled: _selectedUser == null,
               ),
               const SizedBox(height: 12),
