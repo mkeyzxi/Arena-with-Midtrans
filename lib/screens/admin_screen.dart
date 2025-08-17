@@ -1,9 +1,12 @@
+// lib/screens/admin_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/sqlite_service.dart';
 import '../models/booking.dart';
 import 'login_screen.dart';
 import 'admin_monitor_screen.dart';
+import 'admin_booking_screen.dart'; // Import halaman admin booking
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
@@ -19,6 +22,14 @@ class AdminScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Admin - Daftar Booking'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminBookingScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_month),
             onPressed: () {
