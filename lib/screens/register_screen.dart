@@ -1,5 +1,3 @@
-// lib/screens/register_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:arena_futsal_app/models/user.dart';
 import 'package:arena_futsal_app/services/sqlite_service.dart';

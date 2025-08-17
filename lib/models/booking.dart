@@ -6,9 +6,8 @@ class Booking {
   final String? id;
   final String fieldId;
   final String fieldName;
-  final DateTime date;
-  final double startHour;
-  final double durationHours;
+  final DateTime startTime; // Menggunakan DateTime
+  final int durationHours; // Menggunakan int untuk durasi
   final int pricePerHour;
   final int total;
   final int downPayment;
@@ -22,8 +21,7 @@ class Booking {
     this.id,
     required this.fieldId,
     required this.fieldName,
-    required this.date,
-    required this.startHour,
+    required this.startTime,
     required this.durationHours,
     required this.pricePerHour,
     required this.total,
@@ -35,12 +33,13 @@ class Booking {
     this.redirectUrl,
   });
 
+  DateTime get endTime => startTime.add(Duration(hours: durationHours));
+
   Map<String, dynamic> toMap() => {
     'id': id,
     'fieldId': fieldId,
     'fieldName': fieldName,
-    'date': date.toIso8601String(),
-    'startHour': startHour,
+    'startTime': startTime.toIso8601String(),
     'durationHours': durationHours,
     'pricePerHour': pricePerHour,
     'total': total,
@@ -56,8 +55,7 @@ class Booking {
     id: d['id'].toString(),
     fieldId: d['fieldId'],
     fieldName: d['fieldName'],
-    date: DateTime.parse(d['date']),
-    startHour: d['startHour'],
+    startTime: DateTime.parse(d['startTime']),
     durationHours: d['durationHours'],
     pricePerHour: d['pricePerHour'],
     total: d['total'],

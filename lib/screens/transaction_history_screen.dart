@@ -8,6 +8,10 @@ class TransactionHistoryScreen extends StatelessWidget {
   final User user;
   const TransactionHistoryScreen({super.key, required this.user});
 
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = SqliteService();
@@ -33,10 +37,9 @@ class TransactionHistoryScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, i) {
               final b = data[i];
-              final date = DateFormat('dd MMM').format(b.date);
               return ListTile(
                 title: Text(
-                  '${b.fieldName} • $date • ${_formatTime(b.startHour)} • ${b.durationHours} jam',
+                  '${b.fieldName} • ${DateFormat('dd MMM yyyy').format(b.startTime)} • ${_formatTime(b.startTime)} • ${b.durationHours} jam',
                 ),
                 subtitle: Text('Status: ${b.status}'),
                 isThreeLine: false,
@@ -46,11 +49,5 @@ class TransactionHistoryScreen extends StatelessWidget {
         },
       ),
     );
-  }
-
-  String _formatTime(double time) {
-    final int hour = time.floor();
-    final int minute = ((time - hour) * 60).round();
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 }
