@@ -61,7 +61,8 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
     final int downPayment = (total / 2).round();
 
     final now = DateTime.now();
-    DateTime firstBookingDate = now.add(const Duration(days: 90));
+    DateTime firstBookingDate = now;
+    // Cari hari pertama yang cocok dalam minggu ini
     for (int i = 0; i < 7; i++) {
       final date = now.add(Duration(days: i));
       if (date.weekday == _selectedDayOfWeek) {
@@ -84,12 +85,12 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       pricePerHour: field.pricePerHour,
       total: total,
       downPayment: downPayment,
-      status: 'paid', // Admin langsung set paid
+      status: 'paid',
       customerName: _selectedUser!.username,
       customerEmail: _selectedUser!.email,
     );
 
-    await db.addMemberBooking(newBooking, 12); // 12 minggu = ~3 bulan
+    await db.addMemberBooking(newBooking, 13); // 13 booking = ~3 bulan
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

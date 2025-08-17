@@ -143,7 +143,7 @@ class SqliteService {
     return id.toString();
   }
 
-  // --- METODE BARU UNTUK MEMBER BOOKING ---
+  // --- PERBAIKAN DI addMemberBooking: 13 kali booking ---
   Future<void> addMemberBooking(Booking b, int repeatCount) async {
     final batch = _db.batch();
     for (int i = 0; i < repeatCount; i++) {

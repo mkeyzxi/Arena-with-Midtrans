@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pickedDate = await showDatePicker(
       context: context,
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 60)),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
       initialDate: _selectedDate,
     );
     if (pickedDate != null && pickedDate != _selectedDate) {
