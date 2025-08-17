@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/sqlite_service.dart';
 import '../models/booking.dart';
+import '../models/field.dart';
 
 class AdminMonitorScreen extends StatefulWidget {
   const AdminMonitorScreen({super.key});
@@ -14,10 +15,12 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
   final db = SqliteService();
   DateTime _selectedDate = DateTime.now();
   late Future<List<Booking>> _bookingsFuture;
+  late Future<Field> _fieldFuture;
 
   @override
   void initState() {
     super.initState();
+    _fieldFuture = db.getSingleField();
     _bookingsFuture = db.getBookingsForDate(_selectedDate);
   }
 
@@ -52,8 +55,8 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Booking>>(
-        future: _bookingsFuture,
+      body: FutureBuilder<List<dynamic>>(
+        future: Future.wait([_fieldFuture, _bookingsFuture]),
         builder: (_, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -61,17 +64,91 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
           if (snap.hasError) {
             return Center(child: Text('Terjadi error: ${snap.error}'));
           }
-          final bookings = snap.data ?? [];
-          final bookedSlots = <DateTime, Booking>{};
-          for (var b in bookings) {
-            bookedSlots[b.startTime] = b;
-            for (var i = 1; i < b.durationHours; i++) {
-              bookedSlots[b.startTime.add(Duration(hours: i))] = b;
-            }
+
+          final field = snap.data![0] as Field;
+          final bookings = snap.data![1] as List<Booking>;
+
+          final openTime = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            int.parse(field.openHour.split(':')[0]),
+          );
+          final closeTime = DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            int.parse(field.closeHour.split(':')[0]),
+          );
+          final now = DateTime.now();
+
+          final List<Widget> scheduleCards = [];
+
+          DateTime currentTime = openTime;
+
+          // Blok Waktu Lewat
+          if (now.isAfter(openTime) &&
+              now.isBefore(closeTime) &&
+              _selectedDate.isAtSameMomentAs(
+                DateTime(now.year, now.month, now.day),
+              )) {
+            scheduleCards.add(
+              Card(
+                color: Colors.grey.shade300,
+                child: ListTile(
+                  title: Text('${_formatTime(openTime)} - ${_formatTime(now)}'),
+                  trailing: const Text('Lewat Waktu'),
+                ),
+              ),
+            );
+            currentTime = now;
           }
 
-          final int openHour = 8;
-          final int closeHour = 22;
+          // Blok Waktu Terbooking dan Tersedia
+          for (var booking in bookings) {
+            if (booking.startTime.isAfter(currentTime)) {
+              // Tambah kartu Tersedia
+              scheduleCards.add(
+                Card(
+                  color: Colors.green.shade100,
+                  child: ListTile(
+                    title: Text(
+                      '${_formatTime(currentTime)} - ${_formatTime(booking.startTime)}',
+                    ),
+                    trailing: const Text('Tersedia'),
+                  ),
+                ),
+              );
+            }
+            // Tambah kartu Terbooking
+            scheduleCards.add(
+              Card(
+                color: Colors.red.shade100,
+                child: ListTile(
+                  title: Text(
+                    '${_formatTime(booking.startTime)} - ${_formatTime(booking.endTime)}',
+                  ),
+                  trailing: Text('Booked oleh ${booking.customerName}'),
+                ),
+              ),
+            );
+            currentTime = booking.endTime;
+          }
+
+          // Blok Waktu Tersisa
+          if (currentTime.isBefore(closeTime)) {
+            scheduleCards.add(
+              Card(
+                color: Colors.green.shade100,
+                child: ListTile(
+                  title: Text(
+                    '${_formatTime(currentTime)} - ${_formatTime(closeTime)}',
+                  ),
+                  trailing: const Text('Tersedia'),
+                ),
+              ),
+            );
+          }
 
           return Column(
             children: [
@@ -83,37 +160,18 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  itemCount: closeHour - openHour,
-                  itemBuilder: (_, i) {
-                    final timeSlot = DateTime(
-                      _selectedDate.year,
-                      _selectedDate.month,
-                      _selectedDate.day,
-                      openHour + i,
-                    );
-                    final isBooked = bookedSlots.containsKey(timeSlot);
-
-                    return Card(
-                      color:
-                          isBooked
-                              ? Colors.red.shade100
-                              : Colors.green.shade100,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: ListTile(
-                        title: Text(_formatTime(timeSlot)),
-                        subtitle:
-                            isBooked
-                                ? Text(
-                                  'Booked by: ${bookedSlots[timeSlot]!.customerName}',
-                                )
-                                : const Text('Available'),
-                      ),
-                    );
-                  },
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children:
+                      scheduleCards.isNotEmpty
+                          ? scheduleCards
+                          : [
+                            const Center(
+                              child: Text(
+                                'Tidak ada booking untuk tanggal ini.',
+                              ),
+                            ),
+                          ],
                 ),
               ),
             ],

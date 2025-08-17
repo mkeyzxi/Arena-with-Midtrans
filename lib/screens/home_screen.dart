@@ -1,3 +1,5 @@
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
@@ -18,14 +20,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final db = SqliteService();
   late Future<List<Booking>> _latestBookingFuture;
-  late Future<List<Booking>> _scheduleFuture;
+  late Future<List<DateTime>> _availableSlotsFuture;
   DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _latestBookingFuture = _getLatestBooking();
-    _scheduleFuture = db.getBookingsForDate(_selectedDate);
+    _availableSlotsFuture = _getAvailableSlots();
   }
 
   Future<List<Booking>> _getLatestBooking() async {
@@ -34,6 +36,58 @@ class _HomeScreenState extends State<HomeScreen> {
       return allBookings.sublist(0, 1);
     }
     return [];
+  }
+
+  Future<List<DateTime>> _getAvailableSlots() async {
+    final bookings = await db.getBookingsForDate(_selectedDate);
+    final openHour = 8;
+    final closeHour = 22;
+    final availableSlots = <DateTime>[];
+    final now = DateTime.now();
+
+    final openTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      openHour,
+    );
+    final closeTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      closeHour,
+    );
+
+    DateTime currentTime = openTime;
+    while (currentTime.isBefore(closeTime)) {
+      if (_isSlotAvailable(currentTime, bookings, now, _selectedDate)) {
+        availableSlots.add(currentTime);
+      }
+      currentTime = currentTime.add(const Duration(minutes: 60));
+    }
+
+    return availableSlots;
+  }
+
+  bool _isSlotAvailable(
+    DateTime slotTime,
+    List<Booking> bookings,
+    DateTime now,
+    DateTime selectedDate,
+  ) {
+    if (selectedDate.day == now.day &&
+        selectedDate.month == now.month &&
+        selectedDate.year == now.year) {
+      if (slotTime.isBefore(now)) return false;
+    }
+
+    for (var b in bookings) {
+      if (slotTime.isBefore(b.endTime) &&
+          slotTime.add(const Duration(hours: 1)).isAfter(b.startTime)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _pickDate() async {
@@ -46,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (pickedDate != null && pickedDate != _selectedDate) {
       setState(() {
         _selectedDate = pickedDate;
-        _scheduleFuture = db.getBookingsForDate(_selectedDate);
+        _availableSlotsFuture = _getAvailableSlots();
       });
     }
   }
@@ -218,8 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              FutureBuilder<List<Booking>>(
-                future: _scheduleFuture,
+              FutureBuilder<List<DateTime>>(
+                future: _availableSlotsFuture,
                 builder: (ctx, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -227,37 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (snap.hasError) {
                     return Center(child: Text('Terjadi error: ${snap.error}'));
                   }
-                  final bookings = snap.data ?? [];
-                  final openHour = 8;
-                  final closeHour = 22;
-                  final availableSlots = <DateTime>[];
-
-                  final now = DateTime.now();
-                  final startTimeForToday =
-                      _selectedDate.day == now.day &&
-                              _selectedDate.month == now.month
-                          ? now.add(const Duration(minutes: 1))
-                          : DateTime(
-                            _selectedDate.year,
-                            _selectedDate.month,
-                            _selectedDate.day,
-                            openHour,
-                          );
-
-                  for (var h = openHour; h < closeHour; h++) {
-                    final slotTime = DateTime(
-                      _selectedDate.year,
-                      _selectedDate.month,
-                      _selectedDate.day,
-                      h,
-                    );
-                    final isBooked = bookings.any(
-                      (b) => b.startTime.hour == slotTime.hour,
-                    );
-                    if (slotTime.isAfter(startTimeForToday) && !isBooked) {
-                      availableSlots.add(slotTime);
-                    }
-                  }
+                  final availableSlots = snap.data ?? [];
 
                   if (availableSlots.isEmpty) {
                     return const Text('Tidak ada slot tersedia di hari ini.');

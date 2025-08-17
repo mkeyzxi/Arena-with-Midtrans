@@ -206,6 +206,10 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
     }
   }
 
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isSlotValid = _isSlotAvailable ?? false;
@@ -235,7 +239,6 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Pemilihan User
               FutureBuilder<List<User>>(
                 future: _usersFuture,
                 builder: (_, userSnap) {
@@ -289,7 +292,6 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Formulir Booking
               ListTile(
                 title: const Text('Tanggal'),
                 subtitle: Text(dateLabel),

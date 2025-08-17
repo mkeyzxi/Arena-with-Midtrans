@@ -100,6 +100,15 @@ class SqliteService {
     }
   }
 
+  // --- METODE getAllUsers DITAMBAHKAN DI SINI ---
+  Future<List<User>> getAllUsers() async {
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'users',
+      orderBy: 'username ASC',
+    );
+    return maps.map((e) => User.fromMap(e)).toList();
+  }
+
   Future<User?> findUserByEmail(String email) async {
     final List<Map<String, dynamic>> maps = await _db.query(
       'users',
@@ -110,15 +119,6 @@ class SqliteService {
       return User.fromMap(maps.first);
     }
     return null;
-  }
-
-  // --- METODE BARU UNTUK MENGAMBIL SEMUA PENGGUNA ---
-  Future<List<User>> getAllUsers() async {
-    final List<Map<String, dynamic>> maps = await _db.query(
-      'users',
-      orderBy: 'username ASC',
-    );
-    return maps.map((e) => User.fromMap(e)).toList();
   }
 
   Future<void> registerUser(User user) async {
