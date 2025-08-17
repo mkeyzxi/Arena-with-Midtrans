@@ -36,10 +36,8 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
     }
   }
 
-  String _formatTime(double time) {
-    int hour = time.floor();
-    int minute = ((time - hour) * 60).round();
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
   }
 
   @override
@@ -64,10 +62,11 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
             return Center(child: Text('Terjadi error: ${snap.error}'));
           }
           final bookings = snap.data ?? [];
-          final bookedSlots = <double, Booking>{};
+          final bookedSlots = <DateTime, Booking>{};
           for (var b in bookings) {
-            for (var h = 0.0; h < b.durationHours; h += 0.5) {
-              bookedSlots[b.startHour + h] = b;
+            bookedSlots[b.startTime] = b;
+            for (var i = 1; i < b.durationHours; i++) {
+              bookedSlots[b.startTime.add(Duration(hours: i))] = b;
             }
           }
 
@@ -85,9 +84,14 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
               ),
               Expanded(
                 child: ListView.builder(
-                  itemCount: (closeHour - openHour) * 2,
+                  itemCount: closeHour - openHour,
                   itemBuilder: (_, i) {
-                    final timeSlot = openHour.toDouble() + (i * 0.5);
+                    final timeSlot = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month,
+                      _selectedDate.day,
+                      openHour + i,
+                    );
                     final isBooked = bookedSlots.containsKey(timeSlot);
 
                     return Card(

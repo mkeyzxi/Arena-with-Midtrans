@@ -1,3 +1,5 @@
+// lib/screens/user_booking_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/sqlite_service.dart';
@@ -6,7 +8,6 @@ import '../models/field.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
 import 'booking_detail_screen.dart';
-import 'login_screen.dart';
 import 'home_screen.dart';
 
 class UserBookingScreen extends StatefulWidget {
@@ -21,13 +22,15 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   final db = SqliteService();
   final md = MidtransService();
   late Future<Field> _fieldFuture;
-  DateTime _date = DateTime.now();
-  double? _startHour;
-  double _hours = 0.5;
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
+  int _durationHours = 1;
   late final TextEditingController _nameCtl;
   late final TextEditingController _emailCtl;
   bool _payFull = false;
+
   List<Booking> _bookingsOnDate = [];
+  bool? _isSlotAvailable;
 
   @override
   void initState() {
@@ -40,37 +43,19 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   Future<Field> _loadFieldAndBookings() async {
     await db.init();
     final field = await db.getSingleField();
-    _bookingsOnDate = await db.getBookingsForDate(_date);
-    if (field.id.isNotEmpty) {
-      final availableHours = _availableHours(field);
-      if (availableHours.isNotEmpty) {
-        _startHour = availableHours.first;
-      }
-    }
+    await _updateBookings();
     return field;
   }
 
   Future<void> _updateBookings() async {
-    _bookingsOnDate = await db.getBookingsForDate(_date);
+    _bookingsOnDate = await db.getBookingsForDate(_selectedDate);
+    final field = await db.getSingleField();
     setState(() {
-      final availableHours = _availableHours(
-        Field(
-          id: '',
-          name: '',
-          openHour: '08:00',
-          closeHour: '22:00',
-          pricePerHour: 100000,
-        ),
-      );
-      if (!availableHours.contains(_startHour) && availableHours.isNotEmpty) {
-        _startHour = availableHours.first;
-      } else if (availableHours.isEmpty) {
-        _startHour = null;
-      }
+      _isSlotAvailable = _checkSlotAvailability(field);
     });
   }
 
-  int _total(Field field) => (field.pricePerHour * _hours).round();
+  int _total(Field field) => (field.pricePerHour * _durationHours);
   int _dp(Field field) => (_total(field) / 2).round();
 
   Future<void> _pickDate() async {
@@ -78,15 +63,84 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       context: context,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
-      initialDate: _date,
+      initialDate: _selectedDate,
     );
     if (r != null) {
-      setState(() => _date = r);
+      setState(() => _selectedDate = r);
       await _updateBookings();
     }
   }
 
+  Future<void> _pickTime(Field field) async {
+    final now = DateTime.now();
+    final TimeOfDay? r = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
+    );
+    if (r != null) {
+      setState(() => _selectedTime = r);
+      _isSlotAvailable = _checkSlotAvailability(field);
+    }
+  }
+
+  bool _checkSlotAvailability(Field field) {
+    final now = DateTime.now();
+    final selectedStart = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+    final selectedEnd = selectedStart.add(Duration(hours: _durationHours));
+
+    if (selectedStart.isBefore(now)) {
+      return false;
+    }
+
+    for (var b in _bookingsOnDate) {
+      final existingEnd = b.endTime;
+      if (selectedStart.isBefore(existingEnd) &&
+          selectedEnd.isAfter(b.startTime)) {
+        return false;
+      }
+    }
+
+    final openTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      int.parse(field.openHour.split(':')[0]),
+    );
+    final closeTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      int.parse(field.closeHour.split(':')[0]),
+    );
+    if (selectedStart.isBefore(openTime) || selectedEnd.isAfter(closeTime)) {
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _submit(Field field) async {
+    if (!_isSlotAvailable!) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Jam yang dipilih sudah terisi atau tidak valid.'),
+        ),
+      );
+      return;
+    }
+
     final total = _total(field);
     final amount = _payFull ? total : _dp(field);
     final orderId = 'ORDER-${DateTime.now().millisecondsSinceEpoch}';
@@ -94,9 +148,14 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     final booking = Booking(
       fieldId: field.id,
       fieldName: field.name,
-      date: DateTime(_date.year, _date.month, _date.day),
-      startHour: _startHour!,
-      durationHours: _hours,
+      startTime: DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      ),
+      durationHours: _durationHours,
       pricePerHour: field.pricePerHour,
       total: total,
       downPayment: _dp(field),
@@ -140,46 +199,26 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     }
   }
 
-  bool _isSlotBooked(double hour) {
-    for (var b in _bookingsOnDate) {
-      if (hour >= b.startHour && hour < b.startHour + b.durationHours) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  List<double> _availableHours(Field field) {
-    final openHour = int.parse(field.openHour.split(':').first);
-    final closeHour = int.parse(field.closeHour.split(':').first);
-    final hours = <double>[];
-
-    final now = DateTime.now();
-    final startHourForToday =
-        _date.day == now.day &&
-                _date.month == now.month &&
-                _date.year == now.year
-            ? (now.hour.toDouble() + (now.minute > 30 ? 1.0 : 0.5))
-            : openHour.toDouble();
-
-    for (var h = openHour.toDouble(); h < closeHour; h += 0.5) {
-      if (h >= startHourForToday && !_isSlotBooked(h)) {
-        hours.add(h);
-      }
-    }
-    return hours;
-  }
-
-  String _formatTime(double time) {
-    final int hour = time.floor();
-    final int minute = ((time - hour) * 60).round();
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSlotValid = _isSlotAvailable ?? false;
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking Lapangan')),
+      appBar: AppBar(
+        title: const Text('Booking Lapangan'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed:
+              () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => HomeScreen(user: widget.user),
+                ),
+              ),
+        ),
+      ),
       body: FutureBuilder<Field>(
         future: _fieldFuture,
         builder: (ctx, snap) {
@@ -195,17 +234,12 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
             );
           }
           final field = snap.data!;
-          final dateLabel = DateFormat('EEE, dd MMM yyyy').format(_date);
-          final availableHours = _availableHours(field);
+          final dateLabel = DateFormat(
+            'EEE, dd MMM yyyy',
+          ).format(_selectedDate);
+
           final total = _total(field);
           final toPay = _payFull ? total : _dp(field);
-
-          if (!availableHours.contains(_startHour) &&
-              availableHours.isNotEmpty) {
-            _startHour = availableHours.first;
-          } else if (availableHours.isEmpty) {
-            _startHour = null;
-          }
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -219,7 +253,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 child: ListTile(
                   title: Text(field.name),
                   subtitle: Text(
-                    'Buka ${_formatTime(double.parse(field.openHour.split(':')[0]))} - Tutup ${_formatTime(double.parse(field.closeHour.split(':')[0]))}',
+                    'Buka ${field.openHour} - Tutup ${field.closeHour}',
                   ),
                 ),
               ),
@@ -245,43 +279,41 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              DropdownButtonFormField<double>(
-                decoration: const InputDecoration(labelText: 'Jam Mulai'),
-                value: _startHour,
+              ListTile(
+                title: const Text('Jam Mulai'),
+                subtitle: Text(
+                  '${_selectedTime.hour}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                ),
+                trailing: TextButton(
+                  onPressed: () => _pickTime(field),
+                  child: const Text('Pilih'),
+                ),
+              ),
+              if (!isSlotValid)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    'Slot waktu ini tidak tersedia atau tidak valid.',
+                    style: TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                decoration: const InputDecoration(labelText: 'Durasi (jam)'),
+                value: _durationHours,
                 items:
-                    availableHours
+                    List.generate(
+                          int.parse(field.closeHour.split(':')[0]) -
+                              int.parse(field.openHour.split(':')[0]),
+                          (i) => i + 1,
+                        )
                         .map(
-                          (h) => DropdownMenuItem(
-                            value: h,
-                            child: Text(_formatTime(h)),
-                          ),
+                          (d) =>
+                              DropdownMenuItem(value: d, child: Text('$d jam')),
                         )
                         .toList(),
-                onChanged: (v) => setState(() => _startHour = v),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<double>(
-                decoration: const InputDecoration(labelText: 'Durasi (jam)'),
-                value: _hours,
-                items:
-                    _startHour != null
-                        ? List.generate(
-                              ((int.parse(field.closeHour.split(':')[0]) -
-                                          _startHour!) *
-                                      2)
-                                  .toInt(),
-                              (i) => (i + 1) * 0.5,
-                            )
-                            .map(
-                              (d) => DropdownMenuItem(
-                                value: d,
-                                child: Text('${d} jam'),
-                              ),
-                            )
-                            .toList()
-                        : [],
-                onChanged: (v) => setState(() => _hours = v ?? _hours),
-                disabledHint: const Text('Pilih jam mulai terlebih dahulu'),
+                onChanged:
+                    (v) => setState(() => _durationHours = v ?? _durationHours),
               ),
               const SizedBox(height: 12),
               Card(
@@ -293,7 +325,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                       Text(
                         'Harga/jam: Rp ${NumberFormat('#,###', 'id_ID').format(field.pricePerHour)}',
                       ),
-                      Text('Durasi: $_hours jam'),
+                      Text('Durasi: $_durationHours jam'),
                       const Divider(),
                       Text(
                         'Total: Rp ${NumberFormat('#,###', 'id_ID').format(total)}',
@@ -332,9 +364,9 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
               ),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: _startHour != null ? () => _submit(field) : null,
+                onPressed: isSlotValid ? () => _submit(field) : null,
                 child: Text(
-                  'Bayar Sekarang: Rp ${NumberFormat('#,###', 'id_ID').format(toPay)}',
+                  'Bayar Sekarang: Rp ${NumberFormat('#,###', 'id_ID').format(isSlotValid ? (_payFull ? total : _dp(field)) : 0)}',
                 ),
               ),
             ],

@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:intl/intl.dart'; // <--- BARIS INI DITAMBAHKAN
 import '../models/field.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -41,9 +42,8 @@ class SqliteService {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             fieldId TEXT,
             fieldName TEXT,
-            date TEXT,
-            startHour REAL,
-            durationHours REAL,
+            startTime TEXT,
+            durationHours INTEGER,
             pricePerHour INTEGER,
             total INTEGER,
             downPayment INTEGER,
@@ -144,18 +144,18 @@ class SqliteService {
   Future<void> _refreshBookings() async {
     final List<Map<String, dynamic>> maps = await _db.query(
       'bookings',
-      orderBy: 'date DESC',
+      orderBy: 'startTime DESC',
     );
     _bookingController.sink.add(maps.map((e) => Booking.fromMap(e)).toList());
   }
 
   Future<List<Booking>> getBookingsForDate(DateTime date) async {
-    final dateString = date.toIso8601String().split('T')[0];
+    final dateString = DateFormat('yyyy-MM-dd').format(date);
     final List<Map<String, dynamic>> maps = await _db.query(
       'bookings',
-      where: 'date LIKE ?',
-      whereArgs: ['%$dateString%'],
-      orderBy: 'startHour ASC',
+      where: 'strftime(\'%Y-%m-%d\', startTime) = ? AND status IN (?, ?)',
+      whereArgs: [dateString, 'paid', 'pending_payment'],
+      orderBy: 'startTime ASC',
     );
     return maps.map((e) => Booking.fromMap(e)).toList();
   }
@@ -165,7 +165,7 @@ class SqliteService {
       'bookings',
       where: 'customerEmail = ?',
       whereArgs: [userEmail],
-      orderBy: 'date DESC, startHour ASC',
+      orderBy: 'startTime DESC',
     );
     return maps.map((e) => Booking.fromMap(e)).toList();
   }

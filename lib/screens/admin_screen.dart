@@ -8,6 +8,10 @@ import 'admin_monitor_screen.dart';
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
 
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = SqliteService();
@@ -52,10 +56,10 @@ class AdminScreen extends StatelessWidget {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, i) {
               final b = data[i];
-              final date = DateFormat('dd MMM').format(b.date);
+              final date = DateFormat('dd MMM').format(b.startTime);
               return ListTile(
                 title: Text(
-                  '${b.fieldName} • $date • ${b.startHour}:00 • ${b.durationHours} jam',
+                  '${b.fieldName} • $date • ${_formatTime(b.startTime)} • ${b.durationHours} jam',
                 ),
                 subtitle: Text(
                   'Total: Rp ${NumberFormat('#,###', 'id_ID').format(b.total)}  |  DP: Rp ${NumberFormat('#,###', 'id_ID').format(b.downPayment)}\nStatus: ${b.status}',

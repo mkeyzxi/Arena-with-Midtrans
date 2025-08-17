@@ -18,11 +18,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final db = SqliteService();
   late Future<List<Booking>> _latestBookingFuture;
+  late Future<List<Booking>> _scheduleFuture;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _latestBookingFuture = _getLatestBooking();
+    _scheduleFuture = db.getBookingsForDate(_selectedDate);
   }
 
   Future<List<Booking>> _getLatestBooking() async {
@@ -31,6 +34,25 @@ class _HomeScreenState extends State<HomeScreen> {
       return allBookings.sublist(0, 1);
     }
     return [];
+  }
+
+  Future<void> _pickDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 60)),
+      initialDate: _selectedDate,
+    );
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+        _scheduleFuture = db.getBookingsForDate(_selectedDate);
+      });
+    }
+  }
+
+  String _formatTime(DateTime time) {
+    return DateFormat('HH:mm').format(time);
   }
 
   @override
@@ -155,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: ListTile(
                           title: Text(booking.fieldName),
                           subtitle: Text(
-                            'Tanggal: ${DateFormat('dd MMM yyyy').format(booking.date)} • Jam: ${booking.startHour}:00',
+                            'Tanggal: ${DateFormat('dd MMM yyyy').format(booking.startTime)} • Jam: ${_formatTime(booking.startTime)}',
                           ),
                           trailing: const Icon(Icons.arrow_forward_ios),
                         ),
@@ -182,6 +204,86 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Jadwal Ketersediaan',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  IconButton(
+                    onPressed: _pickDate,
+                    icon: const Icon(Icons.calendar_today),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              FutureBuilder<List<Booking>>(
+                future: _scheduleFuture,
+                builder: (ctx, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return Center(child: Text('Terjadi error: ${snap.error}'));
+                  }
+                  final bookings = snap.data ?? [];
+                  final openHour = 8;
+                  final closeHour = 22;
+                  final availableSlots = <DateTime>[];
+
+                  final now = DateTime.now();
+                  final startTimeForToday =
+                      _selectedDate.day == now.day &&
+                              _selectedDate.month == now.month
+                          ? now.add(const Duration(minutes: 1))
+                          : DateTime(
+                            _selectedDate.year,
+                            _selectedDate.month,
+                            _selectedDate.day,
+                            openHour,
+                          );
+
+                  for (var h = openHour; h < closeHour; h++) {
+                    final slotTime = DateTime(
+                      _selectedDate.year,
+                      _selectedDate.month,
+                      _selectedDate.day,
+                      h,
+                    );
+                    final isBooked = bookings.any(
+                      (b) => b.startTime.hour == slotTime.hour,
+                    );
+                    if (slotTime.isAfter(startTimeForToday) && !isBooked) {
+                      availableSlots.add(slotTime);
+                    }
+                  }
+
+                  if (availableSlots.isEmpty) {
+                    return const Text('Tidak ada slot tersedia di hari ini.');
+                  }
+
+                  return SizedBox(
+                    height: 50,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: availableSlots.length,
+                      itemBuilder:
+                          (_, i) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4.0,
+                            ),
+                            child: Chip(
+                              label: Text(_formatTime(availableSlots[i])),
+                              backgroundColor: Colors.green.shade100,
+                            ),
+                          ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
               const Text(
                 'Keunggulan Lapangan',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
