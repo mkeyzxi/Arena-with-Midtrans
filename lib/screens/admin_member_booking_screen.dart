@@ -1,5 +1,3 @@
-// lib/screens/admin_member_booking_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/sqlite_service.dart';
@@ -26,6 +24,17 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
   TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 0);
   int _durationHours = 1;
 
+  // Map untuk konversi nama hari ke Bahasa Indonesia
+  final Map<int, String> indonesianDays = {
+    DateTime.monday: 'Senin',
+    DateTime.tuesday: 'Selasa',
+    DateTime.wednesday: 'Rabu',
+    DateTime.thursday: 'Kamis',
+    DateTime.friday: 'Jumat',
+    DateTime.saturday: 'Sabtu',
+    DateTime.sunday: 'Minggu',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +54,17 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       },
     );
     if (r != null) {
+      // Validasi jam booking
+      if (r.hour < 8 || r.hour >= 22) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Booking hanya dapat dilakukan antara jam 08:00-22:00.',
+            ),
+          ),
+        );
+        return;
+      }
       setState(() => _selectedTime = r);
     }
   }
@@ -57,18 +77,28 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       return;
     }
 
-    final int total = (field.pricePerHour * _durationHours);
-    final int downPayment = (total / 2).round();
-
-    final now = DateTime.now();
-    DateTime firstBookingDate = now.add(const Duration(days: 90));
-    for (int i = 0; i < 7; i++) {
-      final date = now.add(Duration(days: i));
-      if (date.weekday == _selectedDayOfWeek) {
-        firstBookingDate = date;
-        break;
-      }
+    // Validasi jam booking
+    if (_selectedTime.hour < 8 || _selectedTime.hour >= 22) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Booking hanya dapat dilakukan antara jam 08:00-22:00.',
+          ),
+        ),
+      );
+      return;
     }
+
+    // Menghitung tanggal booking pertama
+    DateTime firstBookingDate = DateTime.now();
+    while (firstBookingDate.weekday != _selectedDayOfWeek) {
+      firstBookingDate = firstBookingDate.add(const Duration(days: 1));
+    }
+
+    // Menentukan harga tetap untuk member
+    const int memberPrice = 1100000;
+    const int normalPrice = 1300000; // Harga normal untuk referensi
+    const int totalWeeks = 13; // 3 bulan = 13 minggu
 
     final newBooking = Booking(
       fieldId: field.id,
@@ -81,19 +111,21 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
         _selectedTime.minute,
       ),
       durationHours: _durationHours,
-      pricePerHour: field.pricePerHour,
-      total: total,
-      downPayment: downPayment,
+      pricePerHour:
+          field.pricePerHour, // Harga per jam tetap, tapi total disesuaikan
+      total: memberPrice,
+      downPayment: memberPrice, // Admin langsung set dibayar penuh
       status: 'paid', // Admin langsung set paid
       customerName: _selectedUser!.username,
       customerEmail: _selectedUser!.email,
     );
 
-    await db.addMemberBooking(newBooking, 12); // 12 minggu = ~3 bulan
+    // Menambahkan booking berulang selama 13 minggu
+    await db.addMemberBooking(newBooking, totalWeeks);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Jadwal berulang berhasil dibuat!')),
+        const SnackBar(content: Text('Jadwal booking member berhasil dibuat!')),
       );
       Navigator.of(context).pop();
     }
@@ -102,7 +134,7 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking Berulang untuk Member')),
+      appBar: AppBar(title: const Text('Booking Member (3 Bulan)')),
       body: FutureBuilder<List<dynamic>>(
         future: Future.wait([_fieldFuture, _usersFuture]),
         builder: (_, snap) {
@@ -120,9 +152,7 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               DropdownButtonFormField<User>(
-                decoration: const InputDecoration(
-                  labelText: 'Pilih Pengguna Terdaftar',
-                ),
+                decoration: const InputDecoration(labelText: 'Pilih Pengguna'),
                 value: _selectedUser,
                 items:
                     users
@@ -139,22 +169,20 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Pilih Hari'),
                 value: _selectedDayOfWeek,
-                items: [
-                  for (var i = 1; i <= 7; i++)
-                    DropdownMenuItem(
-                      value: i,
-                      child: Text(
-                        DateFormat('EEEE').format(DateTime(2025, 1, i)),
-                      ),
-                    ),
-                ],
+                items:
+                    indonesianDays.keys.map((day) {
+                      return DropdownMenuItem<int>(
+                        value: day,
+                        child: Text(indonesianDays[day]!),
+                      );
+                    }).toList(),
                 onChanged: (v) => setState(() => _selectedDayOfWeek = v!),
               ),
               const SizedBox(height: 8),
               ListTile(
                 title: const Text('Jam Mulai'),
                 subtitle: Text(
-                  '${_selectedTime.hour}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                  '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
                 ),
                 trailing: TextButton(
                   onPressed: _pickTime,
@@ -167,8 +195,8 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
                 value: _durationHours,
                 items:
                     List.generate(
-                          int.parse(field.closeHour.split(':')[0]) -
-                              int.parse(field.openHour.split(':')[0]),
+                          // Batasi pilihan durasi hingga jam 22:00
+                          22 - _selectedTime.hour,
                           (i) => i + 1,
                         )
                         .map(
@@ -180,9 +208,19 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
                     (v) => setState(() => _durationHours = v ?? _durationHours),
               ),
               const SizedBox(height: 12),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Ringkasan Booking Member:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text('Total Minggu: 13 Minggu'),
+              Text('Harga Member: Rp 1.100.000'),
+              const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _selectedUser != null ? () => _submit(field) : null,
-                child: const Text('Buat Jadwal Berulang'),
+                child: const Text('Buat Jadwal Member'),
               ),
             ],
           );

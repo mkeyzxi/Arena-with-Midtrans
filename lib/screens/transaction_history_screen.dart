@@ -12,37 +12,190 @@ class TransactionHistoryScreen extends StatelessWidget {
     return DateFormat('HH:mm').format(time);
   }
 
+  // Fungsi untuk mendapatkan warna berdasarkan status booking
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'paid':
+        return Colors.green[600]!;
+      case 'pending_payment':
+        return Colors.orange[600]!;
+      case 'canceled':
+        return Colors.red[600]!;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Fungsi untuk mendapatkan teks status yang lebih rapi
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'paid':
+        return 'Terbayar';
+      case 'pending_payment':
+        return 'Menunggu Pembayaran';
+      case 'canceled':
+        return 'Dibatalkan';
+      default:
+        return 'Tidak Diketahui';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final db = SqliteService();
     return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Transaksi')),
+      appBar: AppBar(title: const Text('Riwayat Transaksi'), centerTitle: true),
       body: StreamBuilder<List<Booking>>(
         stream: db.streamBookings(),
         builder: (_, snap) {
-          final data =
-              snap.data?.where((b) => b.customerEmail == user.email).toList() ??
-              [];
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
             return Center(child: Text('Terjadi error: ${snap.error}'));
           }
-          if (data.isEmpty)
+          final data =
+              snap.data?.where((b) => b.customerEmail == user.email).toList() ??
+              [];
+          if (data.isEmpty) {
             return const Center(child: Text('Belum ada riwayat transaksi.'));
+          }
 
-          return ListView.separated(
+          // Urutkan data dari yang terbaru
+          data.sort((a, b) => b.startTime.compareTo(a.startTime));
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16.0),
             itemCount: data.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (_, i) {
               final b = data[i];
-              return ListTile(
-                title: Text(
-                  '${b.fieldName} • ${DateFormat('dd MMM yyyy').format(b.startTime)} • ${_formatTime(b.startTime)} • ${b.durationHours} jam',
+              return Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                subtitle: Text('Status: ${b.status}'),
-                isThreeLine: false,
+                margin: const EdgeInsets.only(bottom: 16.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Judul & Ikon
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.sports_soccer,
+                            color: Colors.blue[700],
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              b.fieldName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Detail Waktu
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${_formatTime(b.startTime)} • ${b.durationHours} jam',
+                            style: TextStyle(color: Colors.grey[800]),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Detail Tanggal
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormat('dd MMMM yyyy').format(b.startTime),
+                            style: TextStyle(color: Colors.grey[800]),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+
+                      // Total Pembayaran & Status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total:',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                          Text(
+                            'Rp ${NumberFormat('#,###', 'id_ID').format(b.total)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Badge Status
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(b.status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.circle,
+                              size: 12,
+                              color: _getStatusColor(b.status),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getStatusText(b.status),
+                              style: TextStyle(
+                                color: _getStatusColor(b.status),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           );

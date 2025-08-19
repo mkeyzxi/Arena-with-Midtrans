@@ -164,6 +164,9 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
           final bookings = snap.data![1] as List<Booking>;
           final scheduleItems = _generateTimeSlots(field, bookings);
 
+          // Pastikan locale diatur ke 'id_ID' untuk format tanggal
+          Intl.defaultLocale = 'id_ID';
+
           return Column(
             children: [
               Padding(
