@@ -1,4 +1,4 @@
-// lib/screens/user_booking_screen.dart
+// lib/screens/admin_booking_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,25 +8,26 @@ import '../models/field.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
 import 'booking_detail_screen.dart';
-import 'home_screen.dart';
 
-class UserBookingScreen extends StatefulWidget {
-  final User user;
-  const UserBookingScreen({super.key, required this.user});
+class AdminBookingScreen extends StatefulWidget {
+  const AdminBookingScreen({super.key});
 
   @override
-  State<UserBookingScreen> createState() => _UserBookingScreenState();
+  State<AdminBookingScreen> createState() => _AdminBookingScreenState();
 }
 
-class _UserBookingScreenState extends State<UserBookingScreen> {
+class _AdminBookingScreenState extends State<AdminBookingScreen> {
   final db = SqliteService();
   final md = MidtransService();
   late Future<Field> _fieldFuture;
+  late Future<List<User>> _usersFuture;
+
+  User? _selectedUser;
+  final TextEditingController _manualUsernameCtl = TextEditingController();
+
   DateTime _selectedDate = DateTime.now();
   TimeOfDay _selectedTime = TimeOfDay.now();
   int _durationHours = 1;
-  late final TextEditingController _nameCtl;
-  late final TextEditingController _emailCtl;
   bool _payFull = false;
 
   List<Booking> _bookingsOnDate = [];
@@ -35,29 +36,23 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   @override
   void initState() {
     super.initState();
-    _nameCtl = TextEditingController(text: widget.user.username);
-    _emailCtl = TextEditingController(text: widget.user.email);
     _fieldFuture = _loadFieldAndBookings();
+    _usersFuture = db.getAllUsers();
   }
 
   Future<Field> _loadFieldAndBookings() async {
     await db.init();
     final field = await db.getSingleField();
-    await _updateBookings(field);
+    await _updateBookings();
     return field;
   }
 
-  Future<void> _updateBookings(Field field) async {
+  Future<void> _updateBookings() async {
     _bookingsOnDate = await db.getBookingsForDate(_selectedDate);
+    final field = await db.getSingleField();
     setState(() {
       _isSlotAvailable = _checkSlotAvailability(field);
     });
-  }
-
-  int _calculateMaxDuration(Field field) {
-    final closeHour = int.parse(field.closeHour.split(':')[0]);
-    final selectedHour = _selectedTime.hour;
-    return closeHour - selectedHour;
   }
 
   int _total(Field field) => (field.pricePerHour * _durationHours);
@@ -72,8 +67,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     );
     if (r != null) {
       setState(() => _selectedDate = r);
-      final field = await db.getSingleField();
-      await _updateBookings(field);
+      await _updateBookings();
     }
   }
 
@@ -90,14 +84,8 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       },
     );
     if (r != null) {
-      setState(() {
-        _selectedTime = r;
-        _isSlotAvailable = _checkSlotAvailability(field);
-        final maxDuration = _calculateMaxDuration(field);
-        if (_durationHours > maxDuration) {
-          _durationHours = maxDuration;
-        }
-      });
+      setState(() => _selectedTime = r);
+      _isSlotAvailable = _checkSlotAvailability(field);
     }
   }
 
@@ -117,9 +105,6 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     }
 
     for (var b in _bookingsOnDate) {
-      if (b.customerEmail == widget.user.email) {
-        continue;
-      }
       final existingEnd = b.endTime;
       if (selectedStart.isBefore(existingEnd) &&
           selectedEnd.isAfter(b.startTime)) {
@@ -147,14 +132,18 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   }
 
   Future<void> _submit(Field field) async {
-    if (!_isSlotAvailable!) {
+    if (!_isSlotAvailable! ||
+        (_selectedUser == null && _manualUsernameCtl.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Jam yang dipilih sudah terisi atau tidak valid.'),
-        ),
+        const SnackBar(content: Text('Data tidak valid atau slot terisi.')),
       );
       return;
     }
+
+    final String customerName =
+        _selectedUser?.username ?? _manualUsernameCtl.text.trim();
+    final String customerEmail =
+        _selectedUser?.email ?? 'guest@arena.com'; // Email default untuk tamu
 
     final total = _total(field);
     final amount = _payFull ? total : _dp(field);
@@ -175,8 +164,8 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       total: total,
       downPayment: _dp(field),
       status: 'pending',
-      customerName: _nameCtl.text.trim(),
-      customerEmail: _emailCtl.text.trim(),
+      customerName: customerName,
+      customerEmail: customerEmail,
     );
 
     final bookingId = await db.addBooking(booking);
@@ -203,7 +192,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 bookingId: bookingId,
                 orderId: orderId,
                 redirectUrl: tx['redirect_url'],
-                user: widget.user,
+                user: null,
               ),
         ),
       );
@@ -223,18 +212,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   Widget build(BuildContext context) {
     final isSlotValid = _isSlotAvailable ?? false;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Booking Lapangan'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed:
-              () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => HomeScreen(user: widget.user),
-                ),
-              ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Booking untuk User')),
       body: FutureBuilder<Field>(
         future: _fieldFuture,
         builder: (ctx, snap) {
@@ -253,40 +231,58 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
           final dateLabel = DateFormat(
             'EEE, dd MMM yyyy',
           ).format(_selectedDate);
-
           final total = _total(field);
           final toPay = _payFull ? total : _dp(field);
-          final maxDuration = _calculateMaxDuration(field);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Detail Lapangan',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              FutureBuilder<List<User>>(
+                future: _usersFuture,
+                builder: (_, userSnap) {
+                  if (userSnap.connectionState == ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  }
+                  if (userSnap.hasData) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<User>(
+                          decoration: const InputDecoration(
+                            labelText: 'Pilih Pengguna Terdaftar',
+                          ),
+                          value: _selectedUser,
+                          items:
+                              userSnap.data!
+                                  .map(
+                                    (user) => DropdownMenuItem(
+                                      value: user,
+                                      child: Text(user.username),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) {
+                            setState(() {
+                              _selectedUser = v;
+                              _manualUsernameCtl.clear();
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Atau masukkan nama pengguna baru:'),
+                      ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
               ),
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  title: Text(field.name),
-                  subtitle: Text(
-                    'Buka ${field.openHour} - Tutup ${field.closeHour}',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameCtl,
-                decoration: const InputDecoration(labelText: 'Nama Pemesan'),
-                enabled: false,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _emailCtl,
-                decoration: const InputDecoration(labelText: 'Email'),
-                enabled: false,
+              TextField(
+                controller: _manualUsernameCtl,
+                decoration: const InputDecoration(labelText: 'Nama Pengguna'),
+                enabled: _selectedUser == null,
               ),
               const SizedBox(height: 12),
+
               ListTile(
                 title: const Text('Tanggal'),
                 subtitle: Text(dateLabel),
@@ -319,7 +315,11 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 decoration: const InputDecoration(labelText: 'Durasi (jam)'),
                 value: _durationHours,
                 items:
-                    List.generate(maxDuration, (i) => i + 1)
+                    List.generate(
+                          int.parse(field.closeHour.split(':')[0]) -
+                              int.parse(field.openHour.split(':')[0]),
+                          (i) => i + 1,
+                        )
                         .map(
                           (d) =>
                               DropdownMenuItem(value: d, child: Text('$d jam')),

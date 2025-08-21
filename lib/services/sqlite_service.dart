@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:intl/intl.dart'; // <--- BARIS INI DITAMBAHKAN
+import 'package:intl/intl.dart';
 import '../models/field.dart';
 import '../models/booking.dart';
 import '../models/user.dart';
@@ -100,6 +100,14 @@ class SqliteService {
     }
   }
 
+  Future<List<User>> getAllUsers() async {
+    final List<Map<String, dynamic>> maps = await _db.query(
+      'users',
+      orderBy: 'username ASC',
+    );
+    return maps.map((e) => User.fromMap(e)).toList();
+  }
+
   Future<User?> findUserByEmail(String email) async {
     final List<Map<String, dynamic>> maps = await _db.query(
       'users',
@@ -134,6 +142,20 @@ class SqliteService {
     final id = await _db.insert('bookings', b.toMap());
     return id.toString();
   }
+
+  // --- METODE BARU UNTUK MEMBER BOOKING ---
+  Future<void> addMemberBooking(Booking b, int repeatCount) async {
+    final batch = _db.batch();
+    for (int i = 0; i < repeatCount; i++) {
+      final bookingTime = b.startTime.add(Duration(days: i * 7));
+      final newBooking = b.toMap();
+      newBooking['startTime'] = bookingTime.toIso8601String();
+      batch.insert('bookings', newBooking);
+    }
+    await batch.commit();
+    _refreshBookings();
+  }
+  // ------------------------------------------
 
   final _bookingController = StreamController<List<Booking>>.broadcast();
   Stream<List<Booking>> streamBookings() {
