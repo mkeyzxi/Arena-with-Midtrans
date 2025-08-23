@@ -398,6 +398,7 @@ class _AdminBookingScreenState extends State<AdminBookingScreen> {
                   'Bayar Sekarang: Rp ${NumberFormat('#,###', 'id_ID').format(isSlotValid ? toPay : 0)}',
                 ),
               ),
+              SizedBox(height: 20)
             ],
           );
         },

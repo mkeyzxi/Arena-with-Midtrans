@@ -1,8 +1,8 @@
 // lib/screens/register_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:arena_futsal_app/models/user.dart';
-import 'package:arena_futsal_app/services/firebase_service.dart';
+import 'package:arena_app/models/user.dart';
+import 'package:arena_app/services/firebase_service.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {

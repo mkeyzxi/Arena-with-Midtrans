@@ -197,13 +197,12 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder:
-              (_) => BookingDetailScreen(
-                bookingId: bookingId,
-                orderId: orderId,
-                redirectUrl: tx['redirect_url'],
-                user: widget.user,
-              ),
+          builder: (_) => BookingDetailScreen(
+            bookingId: bookingId,
+            orderId: orderId,
+            redirectUrl: tx['redirect_url'],
+            user: widget.user,
+          ),
         ),
       );
     } catch (e) {
@@ -226,12 +225,11 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
         title: const Text('Booking Lapangan'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed:
-              () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => HomeScreen(user: widget.user),
-                ),
-              ),
+          onPressed: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(user: widget.user),
+            ),
+          ),
         ),
       ),
       body: FutureBuilder<Field>(
@@ -317,15 +315,13 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Durasi (jam)'),
                 value: _durationHours,
-                items:
-                    List.generate(maxDuration, (i) => i + 1)
-                        .map(
-                          (d) =>
-                              DropdownMenuItem(value: d, child: Text('$d jam')),
-                        )
-                        .toList(),
-                onChanged:
-                    (v) => setState(() => _durationHours = v ?? _durationHours),
+                items: List.generate(maxDuration, (i) => i + 1)
+                    .map(
+                      (d) => DropdownMenuItem(value: d, child: Text('$d jam')),
+                    )
+                    .toList(),
+                onChanged: (v) =>
+                    setState(() => _durationHours = v ?? _durationHours),
               ),
               const SizedBox(height: 12),
               Card(
@@ -381,6 +377,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                   'Bayar Sekarang: Rp ${NumberFormat('#,###', 'id_ID').format(isSlotValid ? (_payFull ? total : _dp(field)) : 0)}',
                 ),
               ),
+              SizedBox(height: 20)
             ],
           );
         },
