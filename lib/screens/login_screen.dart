@@ -1,13 +1,15 @@
+// lib/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:arena_futsal_app/models/user.dart';
-import 'user_booking_screen.dart';
-import 'admin_screen.dart';
-import 'package:arena_futsal_app/services/sqlite_service.dart';
+import '../models/user.dart';
+import '../services/firebase_service.dart';
 import 'register_screen.dart';
+import 'admin_screen.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -16,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   String _err = '';
-  final SqliteService _dbService = SqliteService();
+  final FirebaseService _dbService = FirebaseService();
 
   Future<void> _login() async {
     final e = _email.text.trim();
@@ -43,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext c) {
     return Scaffold(
       appBar: AppBar(
-        elevation: 0, // tanpa bayangan
+        elevation: 0,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
       body: Center(

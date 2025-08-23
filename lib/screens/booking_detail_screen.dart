@@ -6,7 +6,7 @@ import 'package:arena_futsal_app/screens/admin_monitor_screen.dart';
 import 'package:arena_futsal_app/screens/home_screen.dart';
 import 'package:arena_futsal_app/models/user.dart';
 import 'package:arena_futsal_app/screens/login_screen.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart'; // Ganti dengan FirebaseService
 
 class BookingDetailScreen extends StatefulWidget {
   final String bookingId;
@@ -28,7 +28,7 @@ class BookingDetailScreen extends StatefulWidget {
 
 class _BookingDetailScreenState extends State<BookingDetailScreen> {
   late final WebViewController _controller;
-  final db = SqliteService();
+  final db = FirebaseService(); // Ganti dengan FirebaseService
   bool _paidHandled = false;
 
   @override
@@ -54,7 +54,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
                 if (url.contains('status_code=202') ||
                     url.contains('status_code=4xx')) {
-                  db.updateBooking(widget.bookingId, {'status': 'cancelled'});
+                  db.updateBooking(widget.bookingId, {'status': 'canceled'});
                   _showFailureDialog();
                   return NavigationDecision.prevent;
                 }
@@ -95,7 +95,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         (Route<dynamic> route) => false,
                       );
                     } else {
-                      // Fallback: kembali ke login jika user tidak ditemukan
                       Navigator.of(context).pushAndRemoveUntil(
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                         (Route<dynamic> route) => false,

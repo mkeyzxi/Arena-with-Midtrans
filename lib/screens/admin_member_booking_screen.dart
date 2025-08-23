@@ -1,10 +1,11 @@
+// lib/screens/admin_member_booking_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart';
 import '../models/user.dart';
 import '../models/booking.dart';
 import '../models/field.dart';
-import 'admin_screen.dart';
 
 class AdminMemberBookingScreen extends StatefulWidget {
   const AdminMemberBookingScreen({super.key});
@@ -15,7 +16,7 @@ class AdminMemberBookingScreen extends StatefulWidget {
 }
 
 class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
-  final db = SqliteService();
+  final db = FirebaseService();
   late Future<List<User>> _usersFuture;
   late Future<Field> _fieldFuture;
 
@@ -24,7 +25,6 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
   TimeOfDay _selectedTime = const TimeOfDay(hour: 8, minute: 0);
   int _durationHours = 1;
 
-  // Map untuk konversi nama hari ke Bahasa Indonesia
   final Map<int, String> indonesianDays = {
     DateTime.monday: 'Senin',
     DateTime.tuesday: 'Selasa',
@@ -54,7 +54,6 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       },
     );
     if (r != null) {
-      // Validasi jam booking
       if (r.hour < 8 || r.hour >= 22) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -77,7 +76,6 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       return;
     }
 
-    // Validasi jam booking
     if (_selectedTime.hour < 8 || _selectedTime.hour >= 22) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -89,16 +87,13 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
       return;
     }
 
-    // Menghitung tanggal booking pertama
     DateTime firstBookingDate = DateTime.now();
     while (firstBookingDate.weekday != _selectedDayOfWeek) {
       firstBookingDate = firstBookingDate.add(const Duration(days: 1));
     }
 
-    // Menentukan harga tetap untuk member
     const int memberPrice = 1100000;
-    const int normalPrice = 1300000; // Harga normal untuk referensi
-    const int totalWeeks = 13; // 3 bulan = 13 minggu
+    const int totalWeeks = 13;
 
     final newBooking = Booking(
       fieldId: field.id,
@@ -111,16 +106,14 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
         _selectedTime.minute,
       ),
       durationHours: _durationHours,
-      pricePerHour:
-          field.pricePerHour, // Harga per jam tetap, tapi total disesuaikan
+      pricePerHour: field.pricePerHour,
       total: memberPrice,
-      downPayment: memberPrice, // Admin langsung set dibayar penuh
-      status: 'paid', // Admin langsung set paid
+      downPayment: memberPrice,
+      status: 'paid',
       customerName: _selectedUser!.username,
       customerEmail: _selectedUser!.email,
     );
 
-    // Menambahkan booking berulang selama 13 minggu
     await db.addMemberBooking(newBooking, totalWeeks);
 
     if (mounted) {
@@ -194,11 +187,7 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
                 decoration: const InputDecoration(labelText: 'Durasi (jam)'),
                 value: _durationHours,
                 items:
-                    List.generate(
-                          // Batasi pilihan durasi hingga jam 22:00
-                          22 - _selectedTime.hour,
-                          (i) => i + 1,
-                        )
+                    List.generate(22 - _selectedTime.hour, (i) => i + 1)
                         .map(
                           (d) =>
                               DropdownMenuItem(value: d, child: Text('$d jam')),

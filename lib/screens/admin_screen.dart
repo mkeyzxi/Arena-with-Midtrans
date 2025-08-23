@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart';
 import '../models/booking.dart';
 import 'login_screen.dart';
 import 'admin_monitor_screen.dart';
@@ -18,7 +18,7 @@ class AdminScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final db = SqliteService();
+    final db = FirebaseService();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daftar Booking'),
@@ -68,7 +68,7 @@ class AdminScreen extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<Booking>>(
-        stream: db.streamBookings(),
+        stream: db.streamAllBookings(),
         builder: (_, snap) {
           final data = snap.data ?? [];
           if (snap.connectionState == ConnectionState.waiting) {
@@ -77,8 +77,9 @@ class AdminScreen extends StatelessWidget {
           if (snap.hasError) {
             return Center(child: Text('Terjadi error: ${snap.error}'));
           }
-          if (data.isEmpty)
+          if (data.isEmpty) {
             return const Center(child: Text('Belum ada booking'));
+          }
 
           return ListView.separated(
             itemCount: data.length,
@@ -120,13 +121,13 @@ class AdminScreen extends StatelessWidget {
                       itemBuilder:
                           (_) => const [
                             PopupMenuItem(
-                              value: 'pending',
-                              child: Text('pending'),
+                              value: 'pending_payment',
+                              child: Text('pending_payment'),
                             ),
                             PopupMenuItem(value: 'paid', child: Text('paid')),
                             PopupMenuItem(
-                              value: 'cancelled',
-                              child: Text('cancelled'),
+                              value: 'canceled',
+                              child: Text('canceled'),
                             ),
                           ],
                       child: Text(
