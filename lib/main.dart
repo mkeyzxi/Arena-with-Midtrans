@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:arena_futsal_app/services/sqlite_service.dart';
-import 'screens/login_screen.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'screens/login_screen.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final dbService = SqliteService();
-  await dbService.init();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await initializeDateFormatting('id_ID', null);
 
@@ -22,7 +22,7 @@ class ArenaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Arena Booking',
       theme: ThemeData(colorSchemeSeed: Colors.green, useMaterial3: true),
-      localizationsDelegates: [
+      localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
       ],

@@ -1,8 +1,10 @@
+// lib/screens/transaction_history_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../models/booking.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart';
 
 class TransactionHistoryScreen extends StatelessWidget {
   final User user;
@@ -12,7 +14,6 @@ class TransactionHistoryScreen extends StatelessWidget {
     return DateFormat('HH:mm').format(time);
   }
 
-  // Fungsi untuk mendapatkan warna berdasarkan status booking
   Color _getStatusColor(String status) {
     switch (status) {
       case 'paid':
@@ -26,7 +27,6 @@ class TransactionHistoryScreen extends StatelessWidget {
     }
   }
 
-  // Fungsi untuk mendapatkan teks status yang lebih rapi
   String _getStatusText(String status) {
     switch (status) {
       case 'paid':
@@ -42,11 +42,11 @@ class TransactionHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final db = SqliteService();
+    final db = FirebaseService();
     return Scaffold(
       appBar: AppBar(title: const Text('Riwayat Transaksi'), centerTitle: true),
-      body: StreamBuilder<List<Booking>>(
-        stream: db.streamBookings(),
+      body: FutureBuilder<List<Booking>>(
+        future: db.getUserBookings(user.email),
         builder: (_, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -54,14 +54,11 @@ class TransactionHistoryScreen extends StatelessWidget {
           if (snap.hasError) {
             return Center(child: Text('Terjadi error: ${snap.error}'));
           }
-          final data =
-              snap.data?.where((b) => b.customerEmail == user.email).toList() ??
-              [];
+          final data = snap.data ?? [];
           if (data.isEmpty) {
             return const Center(child: Text('Belum ada riwayat transaksi.'));
           }
 
-          // Urutkan data dari yang terbaru
           data.sort((a, b) => b.startTime.compareTo(a.startTime));
 
           return ListView.builder(
@@ -80,7 +77,6 @@ class TransactionHistoryScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Judul & Ikon
                       Row(
                         children: [
                           Icon(
@@ -102,8 +98,6 @@ class TransactionHistoryScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // Detail Waktu
                       Row(
                         children: [
                           Icon(
@@ -119,8 +113,6 @@ class TransactionHistoryScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-
-                      // Detail Tanggal
                       Row(
                         children: [
                           Icon(
@@ -138,8 +130,6 @@ class TransactionHistoryScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       const Divider(),
                       const SizedBox(height: 12),
-
-                      // Total Pembayaran & Status
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -162,8 +152,6 @@ class TransactionHistoryScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // Badge Status
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,

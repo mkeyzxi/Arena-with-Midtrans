@@ -1,6 +1,9 @@
+// lib/screens/register_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:arena_futsal_app/models/user.dart';
-import 'package:arena_futsal_app/services/sqlite_service.dart';
+import 'package:arena_futsal_app/services/firebase_service.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -15,7 +18,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _pass = TextEditingController();
   final _confirmPass = TextEditingController();
   String _err = '';
-  final SqliteService _dbService = SqliteService();
+  final FirebaseService _dbService = FirebaseService();
 
   Future<void> _register() async {
     final u = _username.text.trim();

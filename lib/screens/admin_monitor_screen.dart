@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart'; // Ganti dengan FirebaseService
 import '../models/booking.dart';
 import '../models/field.dart';
 
@@ -14,21 +14,16 @@ class AdminMonitorScreen extends StatefulWidget {
 }
 
 class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
-  final db = SqliteService();
+  final db = FirebaseService();
   DateTime _selectedDate = DateTime.now();
-  late Future<List<dynamic>> _dataFuture;
+  late Stream<List<Booking>> _bookingsStream;
+  late Future<Field> _fieldFuture;
 
   @override
   void initState() {
     super.initState();
-    _dataFuture = _fetchData();
-  }
-
-  Future<List<dynamic>> _fetchData() {
-    return Future.wait([
-      db.getSingleField(),
-      db.getBookingsForDate(_selectedDate),
-    ]);
+    _bookingsStream = db.streamAllBookings();
+    _fieldFuture = db.getSingleField();
   }
 
   Future<void> _pickDate() async {
@@ -41,7 +36,6 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
     if (pickedDate != null && pickedDate != _selectedDate) {
       setState(() {
         _selectedDate = pickedDate;
-        _dataFuture = _fetchData();
       });
     }
   }
@@ -50,9 +44,10 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
     return DateFormat('HH:mm').format(time);
   }
 
+  // Mengubah logika _generateTimeSlots agar sesuai dengan data dari StreamBuilder
   List<Map<String, dynamic>> _generateTimeSlots(
     Field field,
-    List<Booking> bookings,
+    List<Booking> allBookings,
   ) {
     final List<Map<String, dynamic>> slots = [];
     final openTime = DateTime(
@@ -69,11 +64,21 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
     );
     final now = DateTime.now();
 
+    // Filter booking untuk tanggal yang dipilih
+    final bookingsOnDate =
+        allBookings.where((b) {
+          final bookingDate = b.startTime;
+          return bookingDate.year == _selectedDate.year &&
+              bookingDate.month == _selectedDate.month &&
+              bookingDate.day == _selectedDate.day;
+        }).toList();
+
+    // Urutkan booking
+    bookingsOnDate.sort((a, b) => a.startTime.compareTo(b.startTime));
+
     DateTime currentTime = openTime;
 
-    bookings.sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    for (var booking in bookings) {
+    for (var booking in bookingsOnDate) {
       if (booking.startTime.isAfter(currentTime)) {
         slots.add({
           'startTime': currentTime,
@@ -102,38 +107,20 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
     final List<Map<String, dynamic>> finalSlots = [];
     final currentDay = DateTime(now.year, now.month, now.day);
     if (_selectedDate.isAtSameMomentAs(currentDay)) {
-      DateTime pastTime = openTime;
       for (var slot in slots) {
-        if (pastTime.isBefore(now)) {
-          if (slot['startTime'].isAfter(now)) {
-            finalSlots.add({
-              'startTime': pastTime,
-              'endTime': now,
-              'status': 'Lewat Waktu',
-            });
-            pastTime = now;
-          } else {
-            finalSlots.add({
-              'startTime': pastTime,
-              'endTime': slot['endTime'],
-              'status': 'Lewat Waktu',
-            });
-            pastTime = slot['endTime'];
-          }
-        }
-        if (slot['startTime'].isAfter(now)) {
+        if (slot['endTime'].isAfter(now)) {
           finalSlots.add(slot);
+        } else {
+          finalSlots.add({
+            'startTime': slot['startTime'],
+            'endTime': slot['endTime'],
+            'status': 'Lewat Waktu',
+          });
         }
       }
     } else {
       finalSlots.addAll(slots);
     }
-
-    finalSlots.removeWhere(
-      (slot) =>
-          slot['status'] == 'Lewat Waktu' &&
-          slot['endTime'].isAtSameMomentAs(slot['startTime']),
-    );
 
     return finalSlots;
   }
@@ -150,65 +137,83 @@ class _AdminMonitorScreenState extends State<AdminMonitorScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _dataFuture,
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
+      body: FutureBuilder<Field>(
+        future: _fieldFuture,
+        builder: (_, fieldSnap) {
+          if (fieldSnap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snap.hasError) {
-            return Center(child: Text('Terjadi error: ${snap.error}'));
+          if (fieldSnap.hasError) {
+            return Center(child: Text('Terjadi error: ${fieldSnap.error}'));
           }
 
-          final field = snap.data![0] as Field;
-          final bookings = snap.data![1] as List<Booking>;
-          final scheduleItems = _generateTimeSlots(field, bookings);
+          final field = fieldSnap.data!;
+          final dateLabel = DateFormat(
+            'EEE, dd MMM yyyy',
+            'id_ID',
+          ).format(_selectedDate);
 
-          // Pastikan locale diatur ke 'id_ID' untuk format tanggal
-          Intl.defaultLocale = 'id_ID';
+          return StreamBuilder<List<Booking>>(
+            stream: _bookingsStream,
+            builder: (_, bookingSnap) {
+              if (bookingSnap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (bookingSnap.hasError) {
+                return Center(
+                  child: Text('Terjadi error: ${bookingSnap.error}'),
+                );
+              }
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Jadwal untuk: ${DateFormat('EEE, dd MMM yyyy').format(_selectedDate)}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: scheduleItems.length,
-                  itemBuilder: (_, i) {
-                    final item = scheduleItems[i];
-                    final String status = item['status'];
-                    final Color color =
-                        status == 'Tersedia'
-                            ? Colors.green.shade100
-                            : status == 'Booked'
-                            ? Colors.red.shade100
-                            : Colors.grey.shade300;
+              final allBookings = bookingSnap.data ?? [];
+              final scheduleItems = _generateTimeSlots(field, allBookings);
 
-                    return Card(
-                      color: color,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          '${_formatTime(item['startTime'])} - ${_formatTime(item['endTime'])}',
-                        ),
-                        trailing:
-                            status == 'Booked'
-                                ? Text('Booked oleh ${item['customerName']}')
-                                : Text(status),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Jadwal untuk: $dateLabel',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: scheduleItems.length,
+                      itemBuilder: (_, i) {
+                        final item = scheduleItems[i];
+                        final String status = item['status'];
+                        final Color color =
+                            status == 'Tersedia'
+                                ? Colors.green.shade100
+                                : status == 'Booked'
+                                ? Colors.red.shade100
+                                : Colors.grey.shade300;
+
+                        return Card(
+                          color: color,
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          child: ListTile(
+                            title: Text(
+                              '${_formatTime(item['startTime'])} - ${_formatTime(item['endTime'])}',
+                            ),
+                            trailing:
+                                status == 'Booked'
+                                    ? Text(
+                                      'Booked oleh ${item['customerName']}',
+                                    )
+                                    : Text(status),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),

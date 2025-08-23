@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/sqlite_service.dart';
+import '../services/firebase_service.dart';
 import '../services/midtrans_service.dart';
 import '../models/field.dart';
 import '../models/booking.dart';
@@ -19,7 +19,7 @@ class UserBookingScreen extends StatefulWidget {
 }
 
 class _UserBookingScreenState extends State<UserBookingScreen> {
-  final db = SqliteService();
+  final db = FirebaseService();
   final md = MidtransService();
   late Future<Field> _fieldFuture;
   DateTime _selectedDate = DateTime.now();
@@ -41,7 +41,6 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   }
 
   Future<Field> _loadFieldAndBookings() async {
-    await db.init();
     final field = await db.getSingleField();
     await _updateBookings(field);
     return field;
