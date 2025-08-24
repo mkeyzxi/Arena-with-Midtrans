@@ -141,78 +141,72 @@ class _AdminMemberBookingScreenState extends State<AdminMemberBookingScreen> {
           final field = snap.data![0] as Field;
           final users = snap.data![1] as List<User>;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              DropdownButtonFormField<User>(
-                decoration: const InputDecoration(labelText: 'Pilih Pengguna'),
-                value: _selectedUser,
-                items:
-                    users
-                        .map(
-                          (user) => DropdownMenuItem(
-                            value: user,
-                            child: Text(user.username),
-                          ),
-                        )
-                        .toList(),
-                onChanged: (v) => setState(() => _selectedUser = v),
+          return ListView(padding: const EdgeInsets.all(16), children: [
+            DropdownButtonFormField<User>(
+              decoration: const InputDecoration(labelText: 'Pilih Pengguna'),
+              value: _selectedUser,
+              items: users
+                  .map(
+                    (user) => DropdownMenuItem(
+                      value: user,
+                      child: Text(user.username),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedUser = v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              decoration: const InputDecoration(labelText: 'Pilih Hari'),
+              value: _selectedDayOfWeek,
+              items: indonesianDays.keys.map((day) {
+                return DropdownMenuItem<int>(
+                  value: day,
+                  child: Text(indonesianDays[day]!),
+                );
+              }).toList(),
+              onChanged: (v) => setState(() => _selectedDayOfWeek = v!),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              title: const Text('Jam Mulai'),
+              subtitle: Text(
+                '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
               ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Pilih Hari'),
-                value: _selectedDayOfWeek,
-                items:
-                    indonesianDays.keys.map((day) {
-                      return DropdownMenuItem<int>(
-                        value: day,
-                        child: Text(indonesianDays[day]!),
-                      );
-                    }).toList(),
-                onChanged: (v) => setState(() => _selectedDayOfWeek = v!),
+              trailing: TextButton(
+                onPressed: _pickTime,
+                child: const Text('Pilih'),
               ),
-              const SizedBox(height: 8),
-              ListTile(
-                title: const Text('Jam Mulai'),
-                subtitle: Text(
-                  '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-                ),
-                trailing: TextButton(
-                  onPressed: _pickTime,
-                  child: const Text('Pilih'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Durasi (jam)'),
-                value: _durationHours,
-                items:
-                    List.generate(22 - _selectedTime.hour, (i) => i + 1)
-                        .map(
-                          (d) =>
-                              DropdownMenuItem(value: d, child: Text('$d jam')),
-                        )
-                        .toList(),
-                onChanged:
-                    (v) => setState(() => _durationHours = v ?? _durationHours),
-              ),
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
-              const Text(
-                'Ringkasan Booking Member:',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text('Total Minggu: 13 Minggu'),
-              Text('Harga Member: Rp 1.100.000'),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _selectedUser != null ? () => _submit(field) : null,
-                child: const Text('Buat Jadwal Member'),
-              ),
-            ],
-          );
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              decoration: const InputDecoration(labelText: 'Durasi (jam)'),
+              value: _durationHours,
+              items: List.generate(22 - _selectedTime.hour, (i) => i + 1)
+                  .map(
+                    (d) => DropdownMenuItem(value: d, child: Text('$d jam')),
+                  )
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _durationHours = v ?? _durationHours),
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text(
+              'Ringkasan Booking Member:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text('Total Minggu: 13 Minggu'),
+            Text('Harga Member: Rp 1.100.000'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _selectedUser != null ? () => _submit(field) : null,
+              child: const Text('Buat Jadwal Member'),
+            ),
+            const SizedBox(height: 20),
+          ]);
         },
       ),
     );
